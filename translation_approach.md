@@ -730,3 +730,56 @@ its ends lie in math mode, where whitespace has no significance, and condition 3
 catches the one significant trailing whitespace, a control space. LaTeX reads a
 single newline as a space, and math mode ignores the space which replaces a
 comment, so only a comment in text mode renders differently (see step 1).
+
+### Superscript
+
+Superscript is a
+[pulldown-cmark extension](https://docs.rs/pulldown-cmark/0.13.4/pulldown_cmark/enum.Tag.html#variant.Superscript).
+This design uses `pulldown-cmark`'s superscript rules as the normative parsing
+behavior. Translate an attribute-free `<sup>` element to caret-enclosed text
+(`^content^`) when the conditions below allow it. The Markdown reader must
+enable pulldown-cmark's `ENABLE_SUPERSCRIPT` option.
+
+* General Rule: `<sup>...</sup> == ^...^`
+* 1. When the HTML text contains a literal `^` inside or outside internal
+     `<sup>`, output `\^`
+* 2. superscript translation only happens when there are no attributes. If there
+     are `<sup>` tags with attributes, do not apply caret rule and revert back
+     to raw HTML code.
+* 3. translates any nested Inline Formatting while changing `<sup>` tags to `^`
+* 4. Only leading or trailing whitespace within the `<sup>` tag, becomes
+     exterior whitespace.
+* 5. When in Pure mode, drop attributes instead of falling back to raw HTML
+* 6. In Pure Mode Adjacent superscripts without any exterior whitespace will
+     behave as one superscript
+* 7. In Pure Mode, empty or whitespace-only `<sup>` tags are dropped, leaving
+     only the whitespace they contained.
+
+Any surrounding paragraph, heading, list item, or table cell follows its own
+translation rules. HTML fallbacks remain subject to the limitations described in
+the shared HTML translation sections.
+
+| Description                                         | HTML in                                         | Faithful expected          |
+| --------------------------------------------------- | ----------------------------------------------- | -------------------------- |
+| Literal caret                                       | `a^b`                                           | `a\^b`                     |
+| Simple Superscript Case                             | `<sup>x</sup>`                                  | `^x^`                      |
+| Superscript in an equation                          | `a<sup>2</sup> + b<sup>2</sup> = c<sup>2</sup>` | `a^2^ + b^2^ = c^2^`       |
+| Superscript with tag attributes                     | `<sup class="x">a</sup>`                        | `<sup class="x">a</sup>`   |
+| Superscript with inline format                      | `<sup><em>X</em></sup>`                         | `^*X*^`                    |
+| Superscript with interior whitespace                | `<sup> x </sup>`                                | `␣^x^␣`                    |
+| Superscripts with only interior whitespace          | `<sup>␣</sup>`                                  | `<sup>␣</sup>`             |
+| Superscript with nested `<sup>`                     | `<sup><sup>x</sup></sup>`                       | `^^x^^`                    |
+| Empty Superscripts                                  | `<sup></sup>`                                   | `<sup></sup>`              |
+| Adjacent Superscripts without whitespace in between | `<sup>a</sup><sup>b</sup>`                      | `<sup>a</sup><sup>b</sup>` |
+
+"Note:" Nested row currently unverified, use round-trip test
+`ENABLE_SUPERSCRIPT` to verify before implementation
+
+| Description                                         | HTML in                    | Pure Mode |
+| --------------------------------------------------- | -------------------------- | --------- |
+| Attributes                                          | `<sup class="x">a</sup>`   | `^a^`     |
+| Adjacent Superscripts without whitespace in between | `<sup>a</sup><sup>b</sup>` | `^ab^`    |
+| Empty Superscripts                                  | `<sup></sup>`              | <br>      |
+| Superscripts with only interior whitespace          | `<sup>␣</sup>`             | `␣`       |
+
+* blank cells means the element produces no output
